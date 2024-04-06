@@ -4,8 +4,6 @@
 - Normalizing text
 - Embedding text
 - Saving to CSV
-
-## TODO
 - create dataset from collected data
 
 ## Install + Run

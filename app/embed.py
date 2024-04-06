@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 import torch
 from textblob import TextBlob
@@ -28,18 +27,16 @@ def encode_texts(texts):
     return embeddings
 
 
-df_comments = pd.read_csv('../github-issue-data/data/comments-14813.csv')
-text_embeddings = encode_texts(df_comments['text'].tolist())
+def embed_and_save(filepath, savepath):
+    df_comments = pd.read_csv(filepath)
+    text_embeddings = encode_texts(df_comments['text'].tolist())
 
-embeddings_df = pd.DataFrame(text_embeddings)
+    embeddings_df = pd.DataFrame(text_embeddings)
 
-embeddings_df.columns = [
-    f'embedding_{i}' for i in range(embeddings_df.shape[1])]
+    embeddings_df.columns = [
+        f'embedding_{i}' for i in range(embeddings_df.shape[1])]
 
-df_final = pd.concat(
-    [df_comments.drop(columns=['text']), embeddings_df], axis=1)
+    df_final = pd.concat(
+        [df_comments.drop(columns=['text']), embeddings_df], axis=1)
 
-if not os.path.exists('./data'):
-    os.mkdir('./data')
-
-df_final.to_csv('./data/comments_with_embeddings.csv', index=False)
+    df_final.to_csv(savepath, index=False)
