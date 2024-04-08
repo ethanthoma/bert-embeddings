@@ -1,4 +1,4 @@
 .direnv/
-data/
+data/_*
 result
 output/
