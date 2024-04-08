@@ -1,16 +1,21 @@
 import pandas as pd
-import torch
 from textblob import TextBlob
-from transformers import BertTokenizer, BertModel
 from nltk.corpus import stopwords
+from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+import torch
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-model = BertModel.from_pretrained("bert-base-uncased")
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", max_length=512)
+model = AutoModelForSequenceClassification.from_pretrained(
+    "bert-base-uncased", max_length=512
+)
 model.to(device)
 
+sentiment_pipeline = pipeline(
+    "sentiment-analysis", model=model, tokenizer=tokenizer, device=device
+)
 
 stop_words = set(stopwords.words("english"))
 
@@ -40,35 +45,34 @@ def segment_text(text, max_length=510):
     return segments
 
 
-def get_embeddings(token_segments):
-    embeddings = []
-    for segment_ids in token_segments:
-        input_ids = torch.tensor(segment_ids).unsqueeze(0).to(device)
-        with torch.no_grad():
-            outputs = model(input_ids)
-        cls_embedding = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-        embeddings.append(cls_embedding)
-    return embeddings
+def analyze_sentiment(token_segments):
+    sentiments = []
+    for segment in token_segments:
+        segment_text = tokenizer.decode(segment, skip_special_tokens=True)
+        sentiment = sentiment_pipeline(segment_text)[0]
+        sentiments.append(sentiment)
+    return sentiments
 
 
-def combine_embeddings(embeddings):
-    avg_embedding = torch.mean(
-        torch.stack([torch.Tensor(embed) for embed in embeddings]), dim=0
-    ).numpy()
-    return avg_embedding
+def combine_sentiments(sentiments):
+    avg_score = sum([sentiment["score"] for sentiment in sentiments]) / len(sentiments)
+    overall_sentiment = "POSITIVE" if avg_score >= 0.5 else "NEGATIVE"
+    return overall_sentiment, avg_score
 
 
 def process_chunk(chunk):
-    embeddings_list = []
+    results = []
     for text in chunk["text"]:
         preprocessed_text = preprocess_text(text)
         text_segments = segment_text(preprocessed_text)
-        embeddings = get_embeddings(text_segments)
-        combined_embedding = combine_embeddings(embeddings)
-        embeddings_list.append(combined_embedding)
+        sentiments = analyze_sentiment(text_segments)
+        overall_sentiment, avg_score = combine_sentiments(sentiments)
+        results.append((overall_sentiment, avg_score))
 
-    embeddings_df = pd.DataFrame([embedding.flatten() for embedding in embeddings_list])
-    return pd.concat([chunk.reset_index(drop=True), embeddings_df], axis=1)
+    sentiments, scores = zip(*results)
+    chunk["sentiment"] = sentiments
+    chunk["sentiment_score"] = scores
+    return chunk
 
 
 def get(input_csv_path, output_csv_path, chunk_size=100):
@@ -79,4 +83,4 @@ def get(input_csv_path, output_csv_path, chunk_size=100):
         processed_chunk.to_csv(output_csv_path, mode="a", index=False, header=i == 0)
         print(f"Processed chunk {i + 1}.")
 
-    print("Embeddings extraction complete.")
+    print("Sentiments complete.")
