@@ -1,9 +1,7 @@
 import pandas as pd
-from textblob import TextBlob
-from nltk.corpus import stopwords
 from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
 import torch
-
+from .preprocess import preprocess_text
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -17,18 +15,6 @@ sentiment_pipeline = pipeline(
     "sentiment-analysis", model=model, tokenizer=tokenizer, device=device
 )
 
-stop_words = set(stopwords.words("english"))
-
-
-def preprocess_text(text):
-    blob = TextBlob(text)
-    result = []
-    for word in blob.words:
-        lemma_word = word.lemmatize().lower()
-        if lemma_word not in stop_words:
-            result.append(lemma_word)
-    return " ".join(result)
-
 
 def segment_text(text, max_length=510):
     tokens = tokenizer.encode(
@@ -37,7 +23,7 @@ def segment_text(text, max_length=510):
 
     segments = []
     for i in range(0, len(tokens), max_length):
-        segment_ids = tokens[i : i + max_length]
+        segment_ids = tokens[i: i + max_length]
         if len(segment_ids) > max_length:
             segment_ids = segment_ids[:max_length]
         segments.append(segment_ids)
@@ -55,7 +41,8 @@ def analyze_sentiment(token_segments):
 
 
 def combine_sentiments(sentiments):
-    avg_score = sum([sentiment["score"] for sentiment in sentiments]) / len(sentiments)
+    avg_score = sum([sentiment["score"]
+                    for sentiment in sentiments]) / len(sentiments)
     overall_sentiment = "POSITIVE" if avg_score >= 0.5 else "NEGATIVE"
     return overall_sentiment, avg_score
 
@@ -80,7 +67,8 @@ def get(input_csv_path, output_csv_path, chunk_size=100):
 
     for i, chunk in enumerate(pd.read_csv(input_csv_path, chunksize=chunk_size)):
         processed_chunk = process_chunk(chunk)
-        processed_chunk.to_csv(output_csv_path, mode="a", index=False, header=i == 0)
+        processed_chunk.to_csv(output_csv_path, mode="a",
+                               index=False, header=i == 0)
         print(f"Processed chunk {i + 1}.")
 
     print("Sentiments complete.")

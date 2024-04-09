@@ -2,3 +2,4 @@
 data/_*
 result
 output/
+*__pycache__*

@@ -1,8 +1,7 @@
 import pandas as pd
 import torch
-from textblob import TextBlob
 from transformers import BertTokenizer, BertModel
-from nltk.corpus import stopwords
+from .preprocess import preprocess_text
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -12,19 +11,6 @@ model = BertModel.from_pretrained("bert-base-uncased")
 model.to(device)
 
 
-stop_words = set(stopwords.words("english"))
-
-
-def preprocess_text(text):
-    blob = TextBlob(text)
-    result = []
-    for word in blob.words:
-        lemma_word = word.lemmatize().lower()
-        if lemma_word not in stop_words:
-            result.append(lemma_word)
-    return " ".join(result)
-
-
 def segment_text(text, max_length=510):
     tokens = tokenizer.encode(
         text, add_special_tokens=True, truncation=True, max_length=max_length
@@ -32,7 +18,7 @@ def segment_text(text, max_length=510):
 
     segments = []
     for i in range(0, len(tokens), max_length):
-        segment_ids = tokens[i : i + max_length]
+        segment_ids = tokens[i: i + max_length]
         if len(segment_ids) > max_length:
             segment_ids = segment_ids[:max_length]
         segments.append(segment_ids)
@@ -67,7 +53,8 @@ def process_chunk(chunk):
         combined_embedding = combine_embeddings(embeddings)
         embeddings_list.append(combined_embedding)
 
-    embeddings_df = pd.DataFrame([embedding.flatten() for embedding in embeddings_list])
+    embeddings_df = pd.DataFrame([embedding.flatten()
+                                 for embedding in embeddings_list])
     return pd.concat([chunk.reset_index(drop=True), embeddings_df], axis=1)
 
 
@@ -76,7 +63,8 @@ def get(input_csv_path, output_csv_path, chunk_size=100):
 
     for i, chunk in enumerate(pd.read_csv(input_csv_path, chunksize=chunk_size)):
         processed_chunk = process_chunk(chunk)
-        processed_chunk.to_csv(output_csv_path, mode="a", index=False, header=i == 0)
+        processed_chunk.to_csv(output_csv_path, mode="a",
+                               index=False, header=i == 0)
         print(f"Processed chunk {i + 1}.")
 
     print("Embeddings extraction complete.")
