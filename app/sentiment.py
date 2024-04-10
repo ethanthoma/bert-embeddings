@@ -7,7 +7,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased", max_length=512)
 model = AutoModelForSequenceClassification.from_pretrained(
-    "bert-base-uncased", max_length=512
+    "nlptown/bert-base-multilingual-uncased-sentiment", max_length=512
 )
 model.to(device)
 
